@@ -1,3 +1,17 @@
-logs\*.txt
+# Logs
+logs/
+
+# Desktop shortcuts
 *.lnk
+
+# Local/user settings
 settings.local.json
+settings.lua
+
+# tCrossBar per-character data
+config/addons/tCrossBar/*_[0-9]**/
+config/addons/tCrossBar/*.lua
+
+# FindAll plugin cache and per-character profiles
+config/plugins/FindAll/cache/
+config/plugins/FindAll/*_[0-9]*.xml
