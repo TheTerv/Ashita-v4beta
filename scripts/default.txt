@@ -21,13 +21,40 @@
 
 /load thirdparty
 /load addons
+/load findall
+/load minimap
 /load screenshot
+/load sequencer
+/load shorthand
+/load vnm
 
+/addon load autologin 0
+/addon load chatmon
+/addon load checker
+/addon load cleancs
+/addon load config
+/addon load craftmon
+/addon load debuff
 /addon load distance
+/addon load drawdistance
+/addon load fastswap
+/addon load filterscan
 /addon load fps
+/addon load instantah
+/addon load luashitacast
+/addon load macrofix
+/addon load mapdot
+/addon load mobdb
 /addon load move
+/addon load recast
+/addon load scenthound
+/addon load tcrossbar
 /addon load timestamp
 /addon load tparty
+/addon load trimspells
+/addon load truesight
+/addon load ttimers
+/addon load watchdog
 
 ##########################################################################
 #
@@ -67,3 +94,4 @@
 ##########################################################################
 
 /ambient 255 255 255
+/fps 1
