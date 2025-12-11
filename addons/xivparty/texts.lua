@@ -57,10 +57,10 @@ function TextWrapper:text(content)
     self.prim.text = content or '';
 end
 
--- Set position
+-- Set position (forced to integers to prevent sub-pixel rendering artifacts)
 function TextWrapper:pos(x, y)
-    self.prim.position_x = x or 0;
-    self.prim.position_y = y or 0;
+    self.prim.position_x = math.floor(x or 0);
+    self.prim.position_y = math.floor(y or 0);
 end
 
 -- Set font size
@@ -147,6 +147,7 @@ function texts.new(settings)
         can_focus = false,
         font_family = 'Arial',
         font_height = 10,
+        -- Explicitly set color to opaque white (ARGB format)
         color = 0xFFFFFFFF,
         color_outline = 0xFF000000,
         right_justified = settings.flags and settings.flags.right or false,
@@ -157,6 +158,9 @@ function texts.new(settings)
 
     local prim = fonts.new(fontSettings);
     local wrapper = TextWrapper:new(prim, settings);
+
+    -- Ensure color is applied immediately
+    wrapper.prim.color = 0xFFFFFFFF;
 
     -- Store in cache for cleanup
     table.insert(textCache, wrapper);

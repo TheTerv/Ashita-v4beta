@@ -77,6 +77,51 @@ Every time we are ready to test, we need to copy the addon to C:\dev\Ashita-v4be
 
 ---
 
+## Milestone 3b: D3D8 Sprite Rendering (NPOT Texture Fix)
+**Goal:** Fix black box issue caused by Non-Power-Of-Two textures by switching to D3D8 sprite rendering.
+
+**Root Cause:** Ashita's `primitives` library uses basic D3D8 texture loading which doesn't support NPOT textures (e.g., 377x21). XivParty assets are all NPOT. Confirmed via `/xp debug testpow2` - activemon's 64x64 texture renders correctly with primitives, XivParty's 377x21 shows black.
+
+### Investigation Log (Critical Learnings)
+
+**What WORKS:**
+- `/xp debug testpow2`: activemon's 64x64 POW2 texture + primitives library + `SetTextureFromFile()` = **VISIBLE** (white checkmark in green box)
+
+**What DOESN'T work (still black):**
+- XivParty NPOT textures (377x21) with primitives library
+- XivParty NPOT textures with custom D3D8 sprite renderer using `D3DXCreateTextureFromFileA`
+- XivParty NPOT textures with custom D3D8 sprite renderer using `D3DXCreateTextureFromFileExA` with explicit D3DFMT_A8R8G8B8
+
+**Observations:**
+- D3DXCreateTextureFromFileExA reports SUCCESS and correct dimensions (377x21)
+- sprite:Draw() completes without error
+- But output is always black for XivParty textures
+
+**Hypothesis to test:**
+1. Test sprite renderer with activemon POW2 texture (`/xp debug testd3dpow2`)
+   - If works: Problem is XivParty PNG files specifically
+   - If black: Sprite renderer approach is fundamentally broken
+2. If sprite renderer works with POW2, solution is to resize XivParty textures to POW2
+
+### Potential Solutions
+1. **Resize XivParty textures to POW2** - Modify PNG files to be 512x32, 512x16 etc.
+2. **Use primitives + POW2 textures** - Keep simple primitives approach, just fix texture sizes
+3. **Investigate PNG format** - Check if XivParty PNGs have unusual color/alpha format
+
+### Tasks
+- [x] **3b.1 Create sprite_renderer.lua:** Created with D3D8 sprite rendering
+- [x] **3b.2 Update images.lua:** Switched to sprite_renderer
+- [x] **3b.3 Hook d3d_present:** Calling images.render() each frame
+- [ ] **3b.4 Diagnose:** Run `/xp debug testd3dpow2` to isolate issue
+- [ ] **3b.5 Apply fix:** Based on diagnosis result
+
+### Test Criteria
+- Run `/xp debug testd3dpow2` with activemon's POW2 texture
+- If visible: Convert XivParty textures to POW2
+- If black: Debug sprite renderer further
+
+---
+
 ## Milestone 4: Event & Packet Wiring
 **Goal:** Enable real-time updates for HP, MP, TP, and Buffs.
 

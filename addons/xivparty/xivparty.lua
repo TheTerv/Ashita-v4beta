@@ -113,6 +113,10 @@ local function dispose()
         view = nil;
         Settings = nil;
         isInitialized = false;
+
+        -- Shutdown the sprite renderer
+        images.shutdown();
+
         print(chat.header(addon.name):append(chat.message('XivParty disposed.')));
     end
 end
@@ -316,9 +320,21 @@ end);
 
 ----------------------------------------------------------------------------------------------------
 -- Event: d3d_present
--- Ashita primitives auto-render, but hook present to keep debug elements alive.
+-- Render all sprite-based images each frame using D3D8 sprite rendering.
 ----------------------------------------------------------------------------------------------------
+local d3dPresentCallCount = 0;
 ashita.events.register('d3d_present', 'xivparty_present', function()
+    d3dPresentCallCount = d3dPresentCallCount + 1;
+
+    -- Render all images using the sprite renderer
+    local ok, err = pcall(function()
+        images.render();
+    end);
+    if not ok and d3dPresentCallCount <= 3 then
+        print('[XivParty] Error in images.render(): ' .. tostring(err));
+    end
+
+    -- Legacy: keep debug test image visible
     if testImage then
         testImage:visible(not isUiHidden);
     end
@@ -895,6 +911,186 @@ ashita.events.register('command', 'xivparty_command', function(e)
             testImg:visible(true);
             print(chat.header(addon.name):append(chat.message('Created test image with texture at 200,200')));
             print(chat.header(addon.name):append(chat.message('Texture: ' .. windower.addon_path .. 'assets\\xiv\\BgTop.png')));
+        elseif subCommand == 'testtex' then
+            -- Direct primitive test with texture - bypass shim entirely
+            local prims = require('primitives');
+            local texPath = windower.addon_path .. 'assets\\xiv\\BgTop.png';
+            print(chat.header(addon.name):append(chat.message('Testing direct primitive with texture...')));
+            print(chat.header(addon.name):append(chat.message('Path: ' .. texPath)));
+
+            local testPrim = prims.new({
+                visible = true,
+                locked = true,
+                position_x = 300,
+                position_y = 300,
+                width = 377,
+                height = 21,
+                color = 0xFFFFFFFF,
+                texture = texPath,
+            });
+
+            -- Inspect the primitive's actual state
+            print(chat.header(addon.name):append(chat.message('Primitive created. Inspecting state...')));
+            if testPrim and testPrim.obj then
+                local obj = testPrim.obj;
+                print(chat.header(addon.name):append(chat.message('  GetVisible: ' .. tostring(obj:GetVisible()))));
+                print(chat.header(addon.name):append(chat.message('  GetPositionX: ' .. tostring(obj:GetPositionX()))));
+                print(chat.header(addon.name):append(chat.message('  GetPositionY: ' .. tostring(obj:GetPositionY()))));
+                print(chat.header(addon.name):append(chat.message('  GetWidth: ' .. tostring(obj:GetWidth()))));
+                print(chat.header(addon.name):append(chat.message('  GetHeight: ' .. tostring(obj:GetHeight()))));
+                print(chat.header(addon.name):append(chat.message('  GetColor: ' .. string.format('0x%08X', obj:GetColor()))));
+                -- Try to get texture info if available
+                local ok, texInfo = pcall(function()
+                    if obj.GetTexturePath then
+                        return obj:GetTexturePath()
+                    end
+                    return 'N/A'
+                end);
+                print(chat.header(addon.name):append(chat.message('  GetTexturePath: ' .. tostring(ok and texInfo or 'method not available'))));
+            end
+            print(chat.header(addon.name):append(chat.message('Direct primitive test at 300,300')));
+        elseif subCommand == 'testlike' then
+            -- Test EXACTLY like activemon does it
+            local prims = require('primitives');
+            local texPath = addon.path .. '/assets/xiv/BgTop.png';
+            print(chat.header(addon.name):append(chat.message('Testing activemon-style texture loading...')));
+            print(chat.header(addon.name):append(chat.message('Path (forward slash): ' .. texPath)));
+
+            local testPrim = prims.new({
+                visible = true,
+                locked = true,
+                can_focus = false,
+                position_x = 400,
+                position_y = 100,
+                width = 377,
+                height = 21,
+                color = 0xFFFFFFFF,
+            });
+
+            -- Call SetTextureFromFile directly like activemon does
+            testPrim:SetTextureFromFile(texPath);
+
+            print(chat.header(addon.name):append(chat.message('Created at 400,100 using SetTextureFromFile directly')));
+        elseif subCommand == 'testpow2' then
+            -- Test with activemon's 64x64 texture (power-of-2)
+            local prims = require('primitives');
+            local installPath = AshitaCore:GetInstallPath();
+            local texPath = installPath .. '/addons/activemon/active.png';
+            print(chat.header(addon.name):append(chat.message('Testing with activemon texture (should be 64x64 power-of-2)...')));
+            print(chat.header(addon.name):append(chat.message('Path: ' .. texPath)));
+
+            local testPrim = prims.new({
+                visible = true,
+                locked = true,
+                can_focus = false,
+                position_x = 500,
+                position_y = 100,
+                width = 64,
+                height = 64,
+                color = 0xFFFFFFFF,
+            });
+            testPrim:SetTextureFromFile(texPath);
+
+            print(chat.header(addon.name):append(chat.message('Created at 500,100 - if this shows texture, NPOT is the issue')));
+        elseif subCommand == 'testd3d' then
+            -- Test the new D3D8 sprite renderer with NPOT texture
+            print(chat.header(addon.name):append(chat.message('Testing D3D8 sprite renderer with NPOT texture...')));
+
+            -- Check sprite_renderer state
+            local sprite_renderer = require('sprite_renderer');
+
+            -- Clear texture cache to force reload with new settings
+            print(chat.header(addon.name):append(chat.message('  Clearing texture cache...')));
+            sprite_renderer.clearTextureCache();
+
+            print(chat.header(addon.name):append(chat.message('  sprite_renderer.isInitialized: ' .. tostring(sprite_renderer.isInitialized()))));
+
+            -- Initialize if needed
+            if not sprite_renderer.isInitialized() then
+                print(chat.header(addon.name):append(chat.message('  Calling sprite_renderer.init()...')));
+                local initResult = sprite_renderer.init();
+                print(chat.header(addon.name):append(chat.message('  init result: ' .. tostring(initResult))));
+            end
+
+            -- Create test image
+            local testImg = images.new();
+            print(chat.header(addon.name):append(chat.message('  Created image wrapper, imageId: ' .. tostring(testImg.imageId))));
+
+            testImg:pos(100, 400);
+            testImg:size(377, 21);
+
+            -- Test path with full path
+            local texPath = windower.addon_path .. 'assets\\xiv\\BgTop.png';
+            print(chat.header(addon.name):append(chat.message('  Setting texture path: ' .. texPath)));
+
+            -- Verify file exists
+            local f = io.open(texPath, 'rb');
+            if f then
+                f:close();
+                print(chat.header(addon.name):append(chat.success('  File exists!')));
+            else
+                print(chat.header(addon.name):append(chat.error('  File NOT found!')));
+            end
+
+            testImg:path(texPath);
+
+            -- Check if texture loaded
+            local imgInfo = sprite_renderer.getImageInfo(testImg.imageId);
+            if imgInfo then
+                print(chat.header(addon.name):append(chat.message('  Image info: visible=' .. tostring(imgInfo.visible) .. ' texInfo=' .. tostring(imgInfo.texInfo ~= nil))));
+                if imgInfo.texInfo then
+                    print(chat.header(addon.name):append(chat.message('  Texture loaded: ' .. imgInfo.texInfo.width .. 'x' .. imgInfo.texInfo.height)));
+                end
+            end
+
+            testImg:color(255, 255, 255);
+            testImg:alpha(255);
+            testImg:visible(true);
+
+            -- Check draw queue
+            print(chat.header(addon.name):append(chat.message('  Draw queue count: ' .. sprite_renderer.getDrawQueueCount())));
+
+            print(chat.header(addon.name):append(chat.message('Created NPOT image (377x21) at 100,400 using new sprite renderer')));
+            print(chat.header(addon.name):append(chat.message('If you see the texture (not black), the fix works!')));
+        elseif subCommand == 'testd3dpow2' then
+            -- Test sprite renderer with KNOWN WORKING pow2 texture (activemon)
+            print(chat.header(addon.name):append(chat.message('Testing sprite renderer with POW2 texture (activemon)...')));
+
+            local sprite_renderer = require('sprite_renderer');
+            sprite_renderer.clearTextureCache();
+
+            local testImg = images.new();
+            testImg:pos(100, 500);
+            testImg:size(64, 64);
+
+            local installPath = AshitaCore:GetInstallPath();
+            local texPath = installPath .. '/addons/activemon/active.png';
+            print(chat.header(addon.name):append(chat.message('  Path: ' .. texPath)));
+
+            testImg:path(texPath);
+            testImg:color(255, 255, 255);
+            testImg:alpha(255);
+            testImg:visible(true);
+
+            print(chat.header(addon.name):append(chat.message('If this shows the checkmark, sprite renderer works with POW2.')));
+            print(chat.header(addon.name):append(chat.message('If black, sprite renderer itself is broken.')));
+        elseif subCommand == 'testpath' then
+            -- Compare path formats
+            print(chat.header(addon.name):append(chat.message('--- Path Comparison ---')));
+            print(chat.header(addon.name):append(chat.message('addon.path: ' .. tostring(addon.path))));
+            print(chat.header(addon.name):append(chat.message('windower.addon_path: ' .. tostring(windower.addon_path))));
+            local testFile = 'assets/xiv/BgTop.png';
+            local path1 = addon.path .. '/' .. testFile;
+            local path2 = windower.addon_path .. testFile:gsub('/', '\\');
+            print(chat.header(addon.name):append(chat.message('Forward slash path: ' .. path1)));
+            print(chat.header(addon.name):append(chat.message('Backslash path: ' .. path2)));
+            -- Test if files exist
+            local f1 = io.open(path1, 'rb');
+            local f2 = io.open(path2, 'rb');
+            print(chat.header(addon.name):append(chat.message('Forward slash exists: ' .. tostring(f1 ~= nil))));
+            print(chat.header(addon.name):append(chat.message('Backslash exists: ' .. tostring(f2 ~= nil))));
+            if f1 then f1:close() end
+            if f2 then f2:close() end
         elseif subCommand == 'uistate' then
             -- Detailed UI state trace
             print(chat.header(addon.name):append(chat.message('--- UI State Debug ---')));
