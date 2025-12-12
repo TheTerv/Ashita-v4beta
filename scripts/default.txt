@@ -41,11 +41,15 @@
 /addon load filterscan
 /addon load fps
 /addon load instantah
+/addon load logs
 /addon load luashitacast
 /addon load macrofix
 /addon load mapdot
 /addon load mobdb
 /addon load move
+/addon load nokb
+/addon load petinfo
+/addon load quicksets
 /addon load recast
 /addon load scenthound
 /addon load tcrossbar
@@ -55,6 +59,8 @@
 /addon load truesight
 /addon load ttimers
 /addon load watchdog
+/addon load xivparty
+/addon load zonename
 
 ##########################################################################
 #
