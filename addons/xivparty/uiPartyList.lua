@@ -1,29 +1,29 @@
 --[[
-    Copyright © 2024, Tylas
-    All rights reserved.
+	Copyright © 2023, Tylas
+	All rights reserved.
 
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions are met:
+	Redistribution and use in source and binary forms, with or without
+	modification, are permitted provided that the following conditions are met:
 
-        * Redistributions of source code must retain the above copyright
-          notice, this list of conditions and the following disclaimer.
-        * Redistributions in binary form must reproduce the above copyright
-          notice, this list of conditions and the following disclaimer in the
-          documentation and/or other materials provided with the distribution.
-        * Neither the name of XivParty nor the
-          names of its contributors may be used to endorse or promote products
-          derived from this software without specific prior written permission.
+		* Redistributions of source code must retain the above copyright
+		  notice, this list of conditions and the following disclaimer.
+		* Redistributions in binary form must reproduce the above copyright
+		  notice, this list of conditions and the following disclaimer in the
+		  documentation and/or other materials provided with the distribution.
+		* Neither the name of XivParty nor the
+		  names of its contributors may be used to endorse or promote products
+		  derived from this software without specific prior written permission.
 
-    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-    ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-    WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-    DISCLAIMED. IN NO EVENT SHALL <your name> BE LIABLE FOR ANY
-    DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-    (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-    ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+	ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+	WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+	DISCLAIMED. IN NO EVENT SHALL <your name> BE LIABLE FOR ANY
+	DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+	(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+	LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+	ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+	(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+	SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ]]
 
 -- imports
@@ -34,224 +34,205 @@ local uiListItem = require('uiListItem')
 local uiImage = require('uiImage')
 local const = require('const')
 local utils = require('utils')
-
--- Local log helper to match Windower global log
-local function log(text, level)
-    utils:log(text, level)
-end
+local imgui = require('imgui')
 
 -- create the class
 local uiPartyList = classes.class(uiContainer)
 
 local isDebug = false
 
-local resX = windower.get_windower_settings().ui_x_res
-local resY = windower.get_windower_settings().ui_y_res
-
+local resX = AshitaCore:GetConfigurationManager():GetFloat('boot', 'ffxi.registry', '0001', 1024)
+local resY = AshitaCore:GetConfigurationManager():GetFloat('boot', 'ffxi.registry', '0002', 768)
 function uiPartyList:init(layout, partyIndex, model, isUiLocked)
-    if self.super:init() then
-        self.layout = layout
-        self.partyIndex = partyIndex
-        self.model = model
-        self.isUiLocked = isUiLocked -- blocks mouse drag and scale
+	if self.super:init() then
+		self.layout = layout
+		self.partyIndex = partyIndex
+		self.model = model
+		self.isUiLocked = isUiLocked -- blocks mouse drag and scale
 
-        self.listItems = T{} -- ordered list by party list position, index range 0..5
+		self.listItems = T{} -- ordered list by party list position, index range 0..5
 
-        local scale = Settings:getUiScale(self.partyIndex)
-        local pos = Settings:getUiPosition(self.partyIndex)
+		local scale = getUiScale(self.partyIndex)
+		local pos = getUiPosition(self.partyIndex)
 
-        local saveSettings = false
-        local isMainParty = partyIndex == 0
+		local saveSettings = false
+		--local isMainParty = partyIndex == 0
 
-        -- initialize the UI scale based on the screen resolution
-        if scale.x == 0 and scale.y == 0 then
-            scale.x = utils:round(resY / const.baseResY, 2)
-            scale.y = scale.x
+		-- initialize the UI scale based on the screen resolution
+		if scale.x == 0 and scale.y == 0 then
+			scale.x = utils:round(resY / const.baseResY, 2)
+			scale.y = scale.x
 
-            if isMainParty then
-                log('Initializing UI scale: ' .. scale.x)
-                log('Type "//xp setup" to change UI position and scale using drag & drop and the mouse wheel.')
-            end
+			--[[
+			if isMainParty then
+				print('Initializing UI scale: ' .. scale.x)
+				print('Type "//xp" to change UI position and scale using drag & drop and the mouse wheel.')
+			end
+			]]--
 
-            Settings:setUiScale(scale.x, scale.y, self.partyIndex)
-            saveSettings = true
-        end
+			--setUiScale(scale.x, scale.y, self.partyIndex)
+			saveSettings = true
+		end
 
-        -- UI out of bounds check
-        if pos.x >= resX then
-            pos.x = resX - layout.columns * layout.columnWidth * scale.x
+		-- UI out of bounds check
+		if pos.x >= resX then
+			pos.x = resX - layout.columns * layout.columnWidth * scale.x
 
-            log('UI out of bounds! Adjusting \'' .. Settings:partyIndexToName(self.partyIndex) .. '\' X position to ' .. tostring(pos.x))
-            Settings:setUiPosition(pos.x, pos.y, self.partyIndex)
-            saveSettings = true
-        end
+			print('UI out of bounds! Adjusting \'' .. partyIndexToName(self.partyIndex) .. '\' X position to ' .. tostring(pos.x))
+			setUiPosition(pos.x, pos.y, self.partyIndex)
+			saveSettings = true
+		end
 
-        if pos.y >= resY then
-            pos.y = resY - layout.rows * layout.rowHeight * scale.y
+		if pos.y >= resY then
+			pos.y = resY - layout.rows * layout.rowHeight * scale.y
 
-            log('UI out of bounds! Adjusting \'' .. Settings:partyIndexToName(self.partyIndex) .. '\' Y position to ' .. tostring(pos.y))
-            Settings:setUiPosition(pos.x, pos.y, self.partyIndex)
-            saveSettings = true
-        end
+			print('UI out of bounds! Adjusting \'' .. partyIndexToName(self.partyIndex) .. '\' Y position to ' .. tostring(pos.y))
+			setUiPosition(pos.x, pos.y, self.partyIndex)
+			saveSettings = true
+		end
 
-        if saveSettings then
-            Settings:save()
-        end
+		if saveSettings then
+			-- TODO?
+		end
 
         self.posX = pos.x
         self.posY = pos.y
-        self.scaleX = scale.x
-        self.scaleY = scale.y
+		self.scaleX = scale.x
+		self.scaleY = scale.y
 
-        self.background = self:addChild(uiBackground.new(layout.background))
-        self.bgPos = utils:coord(layout.background.pos)
+		self.background = self:addChild(uiBackground.new(layout.background))
+		self.bgPos = utils:coord(layout.background.pos)
 
-        self.imgMouse = self:addChild(uiImage.create())
-        self.imgMouse:alpha(isDebug and 32 or 0)
-        self.dragged = nil
+		self.imgMouse = self:addChild(uiImage.create())
+		self.imgMouse:alpha(isDebug and 32 or 0)
+		self.dragged = nil
 
-        self.isCtrlDown = false
+		self.isCtrlDown = false
 
-        -- register windower event handlers
-        self.keyboardHandlerId = windower.register_event('keyboard', function(key, down)
-            self:handleWindowerKeyboard(key, down)
-        end)
+		-- register windower event handlers
+		--[[
+		self.keyboardHandlerId = windower.register_event('keyboard', function(key, down)
+			self:handleWindowerKeyboard(key, down)
+		end)
 
-        self.mouseHandlerId = windower.register_event('mouse', function(type, x, y, delta, blocked)
-            return self:handleWindowerMouse(type, x, y, delta, blocked)
-        end)
-    end
+		self.mouseHandlerId = windower.register_event('mouse', function(type, x, y, delta, blocked)
+			return self:handleWindowerMouse(type, x, y, delta, blocked)
+		end)
+		]]--
+	end
 end
 
 function uiPartyList:dispose()
-    if not self.isEnabled then return end
-
+	if not self.isEnabled then return end
+		--[[
     windower.unregister_event(self.keyboardHandlerId)
     windower.unregister_event(self.mouseHandlerId)
+		]]--
+	self.listItems:clear()
 
-    self.listItems:clear()
-
-    self.super:dispose()
+	self.super:dispose()
 end
 
 function uiPartyList:setModel(model)
-    self.model = model
+	self.model = model
 end
 
 function uiPartyList:setUiLocked(isUiLocked)
-    if not self.isEnabled then return end
+	if not self.isEnabled then return end
 
-    self.isUiLocked = isUiLocked
-    for _, item in self.listItems:it() do
-        item:setUiLocked(isUiLocked)
-    end
+	self.isUiLocked = isUiLocked
+	for _,item in pairs(self.listItems) do
+		item:setUiLocked(isUiLocked)
+	end
 end
 
+function uiPartyList:drawDragConfig()
+	if (not self.isUiLocked) then
+		imgui.SetNextWindowPos({self.posX, self.posY});
+		self.isUiLocked = true;
+	end
+	imgui.PushStyleColor(ImGuiCol_WindowBg, {1,1,0,1});
+	imgui.PushStyleVar(ImGuiStyleVar_WindowBorderSize, 3);
+	imgui.Begin(("XivParty: Move Party %s"):fmt(self.partyIndex), true, bit.bor(ImGuiWindowFlags_NoSavedSettings, ImGuiWindowFlags_NoDecoration))
+	local posX, posY = imgui.GetWindowPos();
+	self:pos(posX, posY)
+	setUiPosition(posX, posY, self.partyIndex)
+	imgui.End();
+	imgui.PopStyleColor(1);
+	imgui.PopStyleVar(1);
+end
+
+
 function uiPartyList:update()
-    if not self.isEnabled then return end
+	if not self.isEnabled then return end
 
-    local index = self.partyIndex
-    if self.partyIndex > 0 and Settings.swapSingleAlliance and not self.model:hasAlliance2Members() then
-        if self.partyIndex == 1 then -- swap index 1 and 2
-            index = 2
-        else
-            index = 1
-        end
-    end
+	local index = self.partyIndex
+	if self.partyIndex > 0 and Settings.swapSingleAlliance and not self.model:hasAlliance2Members() then
+		if self.partyIndex == 1 then -- swap index 1 and 2
+			index = 2
+		else
+			index = 1
+		end
+	end
 
-    -- update list items
-    -- Debug: check if model.parties exists
-    if not self.model then
-        log('uiPartyList:update - self.model is nil!', 4)
-        return
-    end
-    if not self.model.parties then
-        log('uiPartyList:update - self.model.parties is nil!', 4)
-        return
-    end
-    if not self.model.parties[index] then
-        log('uiPartyList:update - self.model.parties[' .. index .. '] is nil!', 4)
-        return
-    end
+	-- update list items
+	for i = 0, 5 do
+		local player = self.model.parties[index][i]
+		local item = self.listItems[i]
 
-    -- Debug: dump what's in the parties table
-    local partyTable = self.model.parties[index]
-    local debugKeys = {}
-    for k, v in pairs(partyTable) do
-        table.insert(debugKeys, tostring(k) .. '=' .. type(v))
-    end
-    if #debugKeys > 0 then
-        log('PartyList[' .. self.partyIndex .. '] parties[' .. index .. '] keys: ' .. table.concat(debugKeys, ', '), 3)
-    end
+		if player then
+			if not item then
+				item = self:addChild(uiListItem.new(self.layout.listItem, player, self.isUiLocked, self.layout.columnWidth, self.layout.rowHeight))
+				self.listItems[i] = item
+			else
+				item:setPlayer(player)
+			end
+		elseif item then
+			item:dispose()
+			self:removeChild(item)
+			self.listItems[i] = nil
+		end
+	end
 
-    local foundPlayers = 0
-    for i = 0, 5 do
-        local player = self.model.parties[index][i]
-        local item = self.listItems[i]
+	local partySettings = getPartySettings(self.partyIndex)
 
-        if player then
-            foundPlayers = foundPlayers + 1
-            if not item then
-                log('Creating listItem for player: ' .. tostring(player.name) .. ' at index ' .. i, 3)
-                item = self:addChild(uiListItem.new(self.layout.listItem, player, self.isUiLocked, self.layout.columnWidth, self.layout.rowHeight))
-                self.listItems[i] = item
-            else
-                item:setPlayer(player)
-            end
-        elseif item then
-            item:dispose()
-            self:removeChild(item)
-            self.listItems[i] = nil
-        end
-    end
+	-- update the background
+	local count = self.listItems:length()
+	local rowCount = math.floor((count - 1) / self.layout.columns) + 1
+	if partySettings.showEmptyRows then
+		rowCount = self.layout.rows
+	end
+	local contentHeight = rowCount * self.layout.rowHeight + (rowCount - 1) * partySettings.itemSpacing
 
-    -- Debug: log player count once per frame if changed
-    if foundPlayers > 0 then
-        log('PartyList[' .. self.partyIndex .. '] found ' .. foundPlayers .. ' players in model', 3)
-    end
+	self.background:setContentHeight(contentHeight)
+	self.background:visible(count > 0, const.visFeature)
+	self.imgMouse:size(self.layout.columns * self.layout.columnWidth, rowCount * self.layout.rowHeight)
 
-    local partySettings = Settings:getPartySettings(self.partyIndex)
+	-- bottom alignment
+	local alignBottomAdjustY = 0
+	if partySettings.alignBottom then
+		alignBottomAdjustY = contentHeight * -1;
+	end
 
-    -- update the background
-    -- Note: listItems uses 0-based indices (0-5), so # operator won't work
-    local count = 0
-    for i = 0, 5 do
-        if self.listItems[i] then count = count + 1 end
-    end
-    local rowCount = math.floor((count - 1) / self.layout.columns) + 1
-    if partySettings.showEmptyRows then
-        rowCount = self.layout.rows
-    end
-    local contentHeight = rowCount * self.layout.rowHeight + (rowCount - 1) * partySettings.itemSpacing
+	self.background:pos(self.bgPos.x, self.bgPos.y + alignBottomAdjustY)
+	self.imgMouse:pos(0, alignBottomAdjustY)
 
-    self.background:setContentHeight(contentHeight)
-    self.background:visible(count > 0, const.visFeature)
-    self.imgMouse:size(self.layout.columns * self.layout.columnWidth, rowCount * self.layout.rowHeight)
+	-- update the grid
+	for i = 0, 5 do
+		local item = self.listItems[i]
+		if item then
+			local row = math.floor(i / self.layout.columns)
+    		local column = i % self.layout.columns
 
-    -- bottom alignment
-    local alignBottomAdjustY = 0
-    if partySettings.alignBottom then
-        alignBottomAdjustY = -rowCount * self.layout.rowHeight
-    end
+			local x = column * (self.layout.columnWidth + partySettings.itemSpacing)
+			local y = row * (self.layout.rowHeight + partySettings.itemSpacing)
 
-    self.background:pos(self.bgPos.x, self.bgPos.y + alignBottomAdjustY)
-    self.imgMouse:pos(0, alignBottomAdjustY)
+			item:pos(x, y + alignBottomAdjustY)
+		end
+	end
 
-    -- update the grid
-    for i = 0, 5 do
-        local item = self.listItems[i]
-        if item then
-            local row = math.floor(i / self.layout.columns)
-            local column = i % self.layout.columns
 
-            local x = column * (self.layout.columnWidth + partySettings.itemSpacing)
-            local y = row * (self.layout.rowHeight + partySettings.itemSpacing)
-
-            item:pos(x, y + alignBottomAdjustY)
-        end
-    end
-
-    self.super:update()
+	self.super:update()
 end
 
 function uiPartyList:handleWindowerKeyboard(key, down)
@@ -260,6 +241,17 @@ function uiPartyList:handleWindowerKeyboard(key, down)
     end
 end
 
+function uiPartyList:scaleFromSettings()
+	local newScale = getUiScale(self.partyIndex)
+	-- initialize the UI scale based on the screen resolution
+	if newScale.x == 0 and newScale.y == 0 then
+		newScale.x = utils:round(resY / const.baseResY, 2)
+		newScale.y = newScale.x
+	end
+	self:scale(newScale.x, newScale.y);
+end
+
+--[[
 -- handle mouse interaction
 function uiPartyList:handleWindowerMouse(type, x, y, delta, blocked)
     if blocked then return end
@@ -287,17 +279,16 @@ function uiPartyList:handleWindowerMouse(type, x, y, delta, blocked)
         -- mouse left click
         elseif type == 1 then
             if self.imgMouse:hover(x, y) then
-                self.dragged = { x = x - self.imgMouse.absolutePos.x, y = y - self.imgMouse.absolutePos.y }
+				self.dragged = { x = x - self.imgMouse.absolutePos.x, y = y - self.imgMouse.absolutePos.y }
                 return true
             end
 
         -- mouse left release
         elseif type == 2 then
             if self.dragged then
-                Settings:setUiPosition(self.posX, self.posY, self.partyIndex)
+				Settings:setUiPosition(self.posX, self.posY, self.partyIndex)
 
-                log('\'' .. Settings:partyIndexToName(self.partyIndex) .. '\' position: ' .. self.posX .. ', ' .. self.posY)
-                Settings:save()
+                print('\'' .. Settings:partyIndexToName(self.partyIndex) .. '\' position: ' .. self.posX .. ', ' .. self.posY)
 
                 self.dragged = nil
                 return true
@@ -306,21 +297,20 @@ function uiPartyList:handleWindowerMouse(type, x, y, delta, blocked)
         -- mouse scroll
         elseif type == 10 then
             if self.imgMouse:hover(x, y) then
-                local sx = math.max(0.25, self.scaleX + delta / 100)
-                local sy = math.max(0.25, self.scaleY + delta / 100)
-                self:scale(sx, sy)
+				local sx = math.max(0.25, self.scaleX + delta / 100)
+				local sy = math.max(0.25, self.scaleY + delta / 100)
+				self:scale(sx, sy)
 
-                Settings:setUiScale(sx, sy, self.partyIndex)
+				Settings:setUiScale(sx, sy, self.partyIndex)
 
-                log('\'' .. Settings:partyIndexToName(self.partyIndex) .. '\' scale: ' .. sx .. ', ' .. sy)
-                Settings:save()
+				print('\'' .. Settings:partyIndexToName(self.partyIndex) .. '\' scale: ' .. sx .. ', ' .. sy)
 
-                return true
+				return true
             end
         end
     end
 
     return false
 end
-
+]]--
 return uiPartyList
