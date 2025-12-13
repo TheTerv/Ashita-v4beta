@@ -23,9 +23,12 @@
 /load addons
 /load findall
 /load minimap
+/load nameplate
+/load packetflow
 /load screenshot
 /load sequencer
 /load shorthand
+/load uberwarp
 /load vnm
 
 /addon load autologin 0
